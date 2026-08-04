@@ -7,13 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -21,32 +19,30 @@
         "NSPhotoLibraryAddUsageDescription": "Allow AlgoTMS to save captured images."
       }
     },
-
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/algo3.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-
-      "permissions": [
-        "CAMERA",
-        "READ_MEDIA_IMAGES",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
+      "package": "com.saquib25.AlgoTMS54"
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       [
         "expo-camera",
         {
           "cameraPermission": "Allow AlgoTMS to access your camera."
         }
-      ]
-    ]
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b8816f33-f5f4-409a-b5ec-b7e198c520bf"
+      }
+    }
   }
 }

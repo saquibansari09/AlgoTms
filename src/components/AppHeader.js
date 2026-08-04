@@ -1,11 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Animated,
-} from "react-native";
+import { View, Text, Image, StyleSheet, Animated } from "react-native";
 
 export default function AppHeader() {
   const slideAnim = useRef(new Animated.Value(-80)).current;
@@ -40,21 +34,19 @@ export default function AppHeader() {
       <View style={styles.left}>
         <Text style={styles.title}>ALGOTMS</Text>
 
-        <Text style={styles.subtitle}>
-          Smart Field Operations System
-        </Text>
+        <Text style={styles.subtitle}>Smart Field Operations System</Text>
       </View>
 
       {/* Right Logo */}
       <View style={styles.logoContainer}>
-       <Image
-  source={require("../../assets/logo.png")}
-  style={{
-    width: 70,
-    height: 70,
-    resizeMode: "contain",
-  }}
-/>
+        <Image
+          source={require("../../assets/algo-logo.png")}
+          style={{
+            width: 70,
+            height: 70,
+            resizeMode: "contain",
+          }}
+        />
       </View>
 
       {/* Bottom Line */}
@@ -82,8 +74,6 @@ const styles = StyleSheet.create({
       height: 4,
     },
 
-    
-
     overflow: "hidden",
   },
 
@@ -105,8 +95,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  
-
   logo: {
     width: 50,
     height: 50,
@@ -115,8 +103,7 @@ const styles = StyleSheet.create({
 
   bottomLine: {
     position: "absolute",
-    
-    
+
     height: 3,
     backgroundColor: "#FFD700",
   },

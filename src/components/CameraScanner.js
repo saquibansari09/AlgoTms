@@ -1,18 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as MediaLibrary from "expo-media-library";
 import { useNavigation } from "@react-navigation/native"; // ⭐ ADD
+import * as Location from "expo-location"; // ⭐ NEW
+import axios from "axios";
 
 export default function CameraScanner() {
   const cameraRef = useRef(null);
-const navigation = useNavigation();
+  const navigation = useNavigation();
   const [permission, requestPermission] = useCameraPermissions();
   const [mediaPermission, setMediaPermission] = useState(false);
   const [scanned, setScanned] = useState(false);
@@ -35,45 +31,69 @@ const navigation = useNavigation();
   if (!permission.granted) {
     return (
       <View style={styles.center}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={requestPermission}
-        >
+        <TouchableOpacity style={styles.button} onPress={requestPermission}>
           <Text style={styles.buttonText}>Allow Camera</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+
+
+
 const onBarcodeScanned = async ({ data }) => {
   if (scanned) return;
 
   setScanned(true);
 
+  // Split by ;
+  const parts = data.split(";").filter(Boolean);
+
+  // Last number
+  const coolerNo = parts[parts.length - 1];
+
+  console.log("Cooler No:", coolerNo);
+
   try {
-    if (!cameraRef.current) return;
+    const response = await axios.get(
+      "https://algotrack.in/algoTMS/api/Ticket/GetAssetDetails",
+      {
+        params: {
+          coolerNo: coolerNo,
+        },
+      }
+    );
 
-    const photo = await cameraRef.current.takePictureAsync({
-      quality: 0.8,
-    });
+    console.log(response.data);
 
-    if (mediaPermission) {
-      await MediaLibrary.saveToLibraryAsync(photo.uri);
-    }
+   navigation.navigate("Home", {
+  screen: "New",
+  params: {
+    coolerData: {
+      assetNo: coolerNo,
+      storeName: response.data.clientName,
+      algoId: response.data.algoID,
+      lastReportingDate: response.data.lastReportingDate,
+      location: response.data.location,
+      latitude: response.data.latitude,
+      longitude: response.data.longitude,
+    },
+  },
+});
 
-    navigation.navigate("Home", {
-      screen: "New",
-      params: {
-        barcode: data,
-        image: photo.uri,
-      },
-    });
-
-  } catch (e) {
-    Alert.alert("Error", e.message);
+  } catch (error) {
+    console.log(error.response?.data || error.message);
+    Alert.alert("Asset not found");
     setScanned(false);
   }
 };
+
+
+
+
+
+
+
 
   return (
     <View style={styles.container}>
@@ -84,6 +104,9 @@ const onBarcodeScanned = async ({ data }) => {
         barcodeScannerSettings={{
           barcodeTypes: [
             "qr",
+            "pdf417",
+            "aztec",
+            "datamatrix", // ⭐ IMPORTANT
             "ean13",
             "ean8",
             "code128",
@@ -99,23 +122,18 @@ const onBarcodeScanned = async ({ data }) => {
       <View style={styles.overlay}>
         <View style={styles.box} />
 
-        <Text style={styles.scanText}>
-          Point camera towards barcode
-        </Text>
+        <Text style={styles.scanText}>Point camera towards barcode</Text>
 
         <TouchableOpacity
-  style={styles.cancel}
-  onPress={() => navigation.goBack()}
->
+          style={styles.cancel}
+          onPress={() => navigation.goBack()}
+        >
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
-
-
-
 
 const styles = StyleSheet.create({
   container: {
