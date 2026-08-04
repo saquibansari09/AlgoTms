@@ -12,19 +12,15 @@ export default function SplashScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-
       {/* Company Logo */}
-       <Image
-       source={require("../../assets/logo.png")}
-       style={{
-         width: 170,
-         height: 150,
-         resizeMode: "contain",
-       }}
-     />
-
-      
-
+      <Image
+        source={require("../../assets/algo-logo.png")}
+        style={{
+          width: 250,
+          height: 150,
+          resizeMode: "contain",
+        }}
+      />
     </View>
   );
 }
@@ -39,12 +35,8 @@ const styles = StyleSheet.create({
 
   // 🔥 BIGGER LOGO + CONTROL HEIGHT
   logoImage: {
-    width: 260,     // 👈 increased width
-    height: 140,    // 👈 controlled height (no extra space)
+    width: 260, // 👈 increased width
+    height: 140, // 👈 controlled height (no extra space)
     marginBottom: 10, // 👈 reduced gap
   },
-
-  
-
-  
 });
