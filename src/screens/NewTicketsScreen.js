@@ -129,7 +129,7 @@ export default function NewTicketsScreen() {
         setFirstImage(image);
         setFirstImageTime(Date.now());
 
-        setTimeLeft(15 * 60); // 15 minutes countdown start
+        setTimeLeft(10 * 60); // 15 minutes countdown start
 
         setTimeout(
           () => {
@@ -507,7 +507,7 @@ export default function NewTicketsScreen() {
 
         {/* Cooler Second Image */}
         <Text style={styles.label}>
-          Cooler Second Image After 15 Minutes{" "}
+          Cooler Second Image After 10 Minutes{" "}
           <Text style={styles.required}>*</Text>
         </Text>
 
