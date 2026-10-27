@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Image } from "react-native";
 import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function NewTicketsScreen() {
   const [timeLeft, setTimeLeft] = useState(0);
@@ -26,6 +27,7 @@ export default function NewTicketsScreen() {
   const [algoId, setAlgoId] = useState("");
   const [isScanned, setIsScanned] = useState(false);
   const [lastReportingDate, setLastReportingDate] = useState("");
+  const [temperature, setTemperature] = useState("");
   const [location, setLocation] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
@@ -33,47 +35,85 @@ export default function NewTicketsScreen() {
 
   const [ticketBy, setTicketBy] = useState("");
   const [remark, setRemark] = useState("");
-  // const [description, setDescription] = useState("");
   const [visicooler, setVisicooler] = useState("");
   const navigation = useNavigation();
   const route = useRoute();
-  const [algoImage, setAlgoImage] = useState(null);
+  
   const [firstImage, setFirstImage] = useState(null);
   const [secondImage, setSecondImage] = useState(null);
   const [firstImageTime, setFirstImageTime] = useState(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [gpsTime, setGpsTime] = useState("");
   
+  // ⭐ Tab change ya screen switch karne par exact bacha hua time calculate hoga
+  useFocusEffect(
+    useCallback(() => {
+      const calculateRemainingTime = async () => {
+        try {
+          const targetTimeStr = await AsyncStorage.getItem("targetEndTime");
+          if (targetTimeStr) {
+            const targetTime = parseInt(targetTimeStr, 10);
+            const currentTime = Date.now();
+            const remainingSeconds = Math.floor((targetTime - currentTime) / 1000);
+
+            if (remainingSeconds > 0) {
+              setTimeLeft(remainingSeconds);
+            } else {
+              setTimeLeft(0);
+              await AsyncStorage.removeItem("targetEndTime");
+            }
+          }
+        } catch (error) {
+          console.log("Error loading timer", error);
+        }
+      };
+
+      calculateRemainingTime();
+    }, [])
+  );
 
   useEffect(() => {
     if (route.params?.coolerData) {
       const item = route.params.coolerData;
 
-      setAssetNo(item.assetNo);
-      setStoreName(item.storeName);
-      setAlgoId(item.algoId);
-      setLocation(item.location);
-      setLatitude(item.latitude);
-      setLongitude(item.longitude);
-      setLastReportingDate(item.lastReportingDate);
+      setAssetNo(item.assetNo || "");
+      setStoreName(item.storeName || "");
+      setAlgoId(item.algoId || "");
+      setLocation(item.location || "");
+      setLatitude(item.latitude || "");
+      setLongitude(item.longitude || "");
+      setLastReportingDate(item.lastReportingDate || "");
+      
+      const scannedTemp = item.temperature || item.Temperature || "";
+      setTemperature(scannedTemp);
 
-      setIsScanned(true); // QR Scan hua
+      if (!scannedTemp && item.assetNo) {
+        getAssetDetails(item.assetNo);
+      }
+
+      setIsScanned(true);
     }
   }, [route.params]);
 
-  // couting timer for 15 minutes
+  // ⭐ Continuous Ticker synced with Real Timestamp
   useEffect(() => {
     let interval;
 
     if (timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
+      interval = setInterval(async () => {
+        const targetTimeStr = await AsyncStorage.getItem("targetEndTime");
+        if (targetTimeStr) {
+          const targetTime = parseInt(targetTimeStr, 10);
+          const remainingSeconds = Math.floor((targetTime - Date.now()) / 1000);
+
+          if (remainingSeconds <= 0) {
+            setTimeLeft(0);
             clearInterval(interval);
-            return 0;
+            await AsyncStorage.removeItem("targetEndTime");
+          } else {
+            setTimeLeft(remainingSeconds);
           }
-          return prev - 1;
-        });
+        }
       }, 1000);
     }
 
@@ -89,7 +129,6 @@ export default function NewTicketsScreen() {
 
   // camera function
   const openCamera = async (type) => {
-    // ✅ Second Image ke liye 15 minute validation
     if (type === "second") {
       if (!firstImage) {
         alert("Please capture Cooler First Image first.");
@@ -102,15 +141,10 @@ export default function NewTicketsScreen() {
       }
     }
 
-    console.log("Before Camera");
-
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
       quality: 0.8,
     });
-
-    console.log("After Camera");
-    console.log(result);
 
     if (!result.canceled) {
       const asset = result.assets[0];
@@ -121,21 +155,22 @@ export default function NewTicketsScreen() {
         name: asset.fileName || `${type}_${Date.now()}.jpg`,
       };
 
-      if (type === "algo") {
-        setAlgoImage(image);
-      }
-
       if (type === "first") {
         setFirstImage(image);
         setFirstImageTime(Date.now());
 
-        setTimeLeft(10 * 60); // 15 minutes countdown start
+        const duration = 10 * 60; // ⭐ 10 Minutes countdown start
+        setTimeLeft(duration);
+
+        // ⭐ Save target end time in local storage
+        const targetEndTime = Date.now() + duration * 1000;
+        await AsyncStorage.setItem("targetEndTime", targetEndTime.toString());
 
         setTimeout(
           () => {
             checkReportingStatus();
           },
-          14 * 60 * 1000,
+          9 * 60 * 1000,
         );
       }
 
@@ -145,7 +180,6 @@ export default function NewTicketsScreen() {
     }
   };
 
-  // search by enter cooler no function
   const getAssetDetails = async (coolerNo) => {
     try {
       const response = await axios.get(
@@ -160,6 +194,7 @@ export default function NewTicketsScreen() {
       if (response.data.success) {
         setStoreName(response.data.clientName);
         setAlgoId(response.data.algoID);
+        setTemperature(response.data.temperature || "");
         setLocation(response.data.location);
         setLatitude(response.data.latitude);
         setLongitude(response.data.longitude);
@@ -173,7 +208,34 @@ export default function NewTicketsScreen() {
     }
   };
 
-  //checkReportingStatus function via date and time
+  const refreshReportingAndTemp = async () => {
+    if (!assetNo) {
+      alert("Please scan or enter Asset No first");
+      return;
+    }
+    try {
+      const response = await axios.get(
+        "https://algotrack.in/algoTMS/api/Ticket/GetAssetDetails",
+        {
+          params: {
+            coolerNo: assetNo,
+          },
+        },
+      );
+
+      if (response.data.success) {
+        setLastReportingDate(response.data.lastReportingDate || "");
+        setTemperature(response.data.temperature || "");
+        alert("Last Reporting Date & Temperature refreshed!");
+      } else {
+        alert("Failed to refresh details");
+      }
+    } catch (error) {
+      console.log(error);
+      alert("Error refreshing details");
+    }
+  };
+
   const checkReportingStatus = async () => {
     try {
       const response = await axios.get(
@@ -187,7 +249,6 @@ export default function NewTicketsScreen() {
 
       if (response.data.success) {
         const gpsDate = response.data.gpsDateTime;
-
         setGpsTime(gpsDate);
 
         if (gpsDate === lastReportingDate) {
@@ -201,13 +262,7 @@ export default function NewTicketsScreen() {
     }
   };
 
-  // save tickets function
   const saveTicket = async () => {
-    if (!algoImage) {
-      alert("Please capture Algo Image");
-      return;
-    }
-
     if (!firstImage) {
       alert("Please capture First Image");
       return;
@@ -227,18 +282,13 @@ export default function NewTicketsScreen() {
 
       formData.append("coolerNo", assetNo);
       formData.append("algoID", algoId);
+      formData.append("temperature", temperature);
       formData.append("issuedBy", ticketBy);
       formData.append("mobNo", contactNo);
       formData.append("remark", remark);
       formData.append("userID", "6296971A-523C-4778-B9D5-59381B3B9A77");
       formData.append("companyID", "8");
       formData.append("visicoolerRestarted", visicooler);
-
-      formData.append("Images", {
-        uri: algoImage.uri,
-        type: "image/jpeg",
-        name: "algo.jpg",
-      });
 
       formData.append("Images", {
         uri: firstImage.uri,
@@ -250,10 +300,6 @@ export default function NewTicketsScreen() {
         uri: secondImage.uri,
         type: "image/jpeg",
         name: "second.jpg",
-      });
-
-      formData._parts.forEach((item) => {
-        console.log(item[0], item[1]);
       });
 
       const response = await axios.post(
@@ -268,13 +314,9 @@ export default function NewTicketsScreen() {
         },
       );
 
-      // console.log("Status :", response.status);
-      // console.log("Response :", JSON.stringify(response.data));
-
-      // Debug Alert
-      // Alert.alert("API Response", JSON.stringify(response.data));
-
       if (response.data.success) {
+        await AsyncStorage.removeItem("targetEndTime"); // Clear timer storage on success
+
         Alert.alert("Success", "Ticket Created Successfully", [
           {
             text: "OK",
@@ -300,13 +342,8 @@ export default function NewTicketsScreen() {
       console.log(error);
 
       if (error.response) {
-        console.log("STATUS :", error.response.status);
-        console.log("DATA :", JSON.stringify(error.response.data));
-
         Alert.alert("API Error", JSON.stringify(error.response.data));
       } else {
-        console.log("MESSAGE :", error.message);
-
         Alert.alert("Network Error", error.message);
       }
     }
@@ -353,20 +390,16 @@ export default function NewTicketsScreen() {
           placeholderTextColor="#808080"
         />
 
-        {/* Algo ID */}
-        <Text style={styles.label}>
-          Algo ID<Text style={styles.required}>*</Text>
+        {/* Last Reporting Date with Refresh Button */}
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>
+            Last Reporting Date<Text style={styles.required}>*</Text>
           </Text>
-        <TextInput
-          style={styles.input}
-          value={algoId}
-          editable={false}
-          placeholder="Enter Algo ID"
-          placeholderTextColor="#808080"
-        />
-        <Text style={styles.label}>Last Reporting Date<Text style={styles.required}>*</Text>
-
-        </Text>
+          <TouchableOpacity onPress={refreshReportingAndTemp} style={styles.refreshButton}>
+            <Ionicons name="refresh-outline" size={20} color="#8B5E3C" />
+            <Text style={styles.refreshText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
 
         <TextInput
           style={styles.input}
@@ -376,9 +409,20 @@ export default function NewTicketsScreen() {
           placeholderTextColor="#808080"
         />
 
-        <Text style={styles.label}>Location<Text style={styles.required}>*</Text>
-
+        {/* Temperature Field */}
+        <Text style={styles.label}>
+          Temperature<Text style={styles.required}>*</Text>
         </Text>
+        <TextInput
+          style={styles.input}
+          value={temperature}
+          onChangeText={setTemperature}
+          placeholder="Enter Temperature"
+          placeholderTextColor="#808080"
+          keyboardType="numeric"
+        />
+
+        <Text style={styles.label}>Location<Text style={styles.required}>*</Text></Text>
 
         <TextInput
           style={styles.input}
@@ -409,22 +453,6 @@ export default function NewTicketsScreen() {
           placeholder="Longitude"
           placeholderTextColor="#808080"
         />
-
-        {/* Algo ID Image */}
-        <Text style={styles.label}>
-          Algo ID Image<Text style={styles.required}>*</Text>
-        </Text>
-
-        <TouchableOpacity
-  style={styles.fileBtn}
-  onPress={() => openCamera("algo")}
->
-  <Ionicons name="camera-outline" size={30} color="#8B5E3C" />
-</TouchableOpacity>
-
-        {algoImage && (
-          <Image source={{ uri: algoImage.uri }} style={styles.preview} />
-        )}
 
         {/* Visicooler */}
         <Text style={styles.label}>
@@ -459,7 +487,7 @@ export default function NewTicketsScreen() {
           placeholderTextColor="#808080"
         />
 
-        {/* Conatct No */}
+        {/* Contact No */}
         <Text style={styles.label}>
           Contact No<Text style={styles.required}>*</Text>
         </Text>
@@ -495,11 +523,11 @@ export default function NewTicketsScreen() {
         </Text>
 
         <TouchableOpacity
-  style={styles.fileBtn}
-  onPress={() => openCamera("first")}
->
-  <Ionicons name="camera-outline" size={30} color="#8B5E3C" />
-</TouchableOpacity>
+          style={styles.fileBtn}
+          onPress={() => openCamera("first")}
+        >
+          <Ionicons name="camera-outline" size={30} color="#8B5E3C" />
+        </TouchableOpacity>
 
         {firstImage && (
           <Image source={{ uri: firstImage.uri }} style={styles.preview} />
@@ -559,13 +587,14 @@ export default function NewTicketsScreen() {
             </View>
           )}
         </View>
-       <TouchableOpacity
-  style={[styles.fileBtn, timeLeft > 0 && { backgroundColor: "#ccc" }]}
-  disabled={timeLeft > 0}
-  onPress={() => openCamera("second")}
->
-  <Ionicons name="camera-outline" size={30} color="#8B5E3C" />
-</TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.fileBtn, timeLeft > 0 && { backgroundColor: "#ccc" }]}
+          disabled={timeLeft > 0}
+          onPress={() => openCamera("second")}
+        >
+          <Ionicons name="camera-outline" size={30} color="#8B5E3C" />
+        </TouchableOpacity>
 
         {secondImage && (
           <Image source={{ uri: secondImage.uri }} style={styles.preview} />
@@ -600,8 +629,30 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
 
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 6,
+  },
+
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+
+  refreshText: {
+    color: "#8B5E3C",
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+
   input: {
-    height: 50, // Same height
+    height: 50,
     borderWidth: 0.5,
     borderColor: "#8B5E3C",
     borderRadius: 8,
@@ -620,7 +671,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  row: {
+ row: {
     flexDirection: "row",
     gap: 10,
     marginVertical: 8,
@@ -632,11 +683,12 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: "#8B5E3C",
     borderRadius: 8,
+    backgroundColor: "#f5f5f5", // Optional: unselected background
   },
 
   radioActive: {
-    backgroundColor: "#dbeafe",
-    borderColor: "#3b82f6",
+    backgroundColor: "#dbeafe", // Selected background color
+    borderColor: "#3b82f6",     // Selected border color
   },
 
   saveBtn: {
